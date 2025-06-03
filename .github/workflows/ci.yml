@@ -1,0 +1,48 @@
+name: ci
+
+on:
+  push:
+    paths-ignore:
+      - "README.md"
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+      - name: Install dev dependencies
+        run: pip install -r dev-requirements.txt
+      - name: Run linter
+        run: ruff check
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run unit tests
+        run: python -m unittest
+      - name: Install e2e test dependencies
+        run: ./bin/setup
+      - name: Build micropython
+        run: |
+          git clone --depth 1 https://github.com/micropython/micropython.git
+          cd micropython
+          git submodule update --init
+          make -C mpy-cross
+          cp mpy-cross/build/mpy-cross /usr/local/bin/
+          make -C ports/unix
+          cp ports/unix/build-standard/micropython /usr/local/bin/
+          cd ..
+          rm -rf micropython
+      - name: Install mosquitto
+        run: sudo apt-get install -y mosquitto
+      - name: Run integration tests
+        run: ./bin/test_e2e
