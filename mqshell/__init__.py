@@ -167,7 +167,11 @@ class MQTTShell(Cmd):
         host = args[1] or "localhost"
         port = int(args[2]) if args[2] else 1883
         keepalive = int(args[3]) if args[3] else 60
-        self.client.connect(host=host, port=port, keepalive=keepalive, clean_start=True)
+        try:
+            self.client.connect(host=host, port=port, keepalive=keepalive, clean_start=True)
+        except ConnectionRefusedError as e:
+            print(f"Failed to connect to MQTT broker at {host}:{port} {e}")
+            return
 
         # start the loop to receive messages
         self.client.loop_start()
