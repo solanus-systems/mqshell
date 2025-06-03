@@ -8,11 +8,10 @@ from getpass import getuser
 from io import IOBase
 from shlex import join, shlex
 from socket import gethostname
-from time import sleep
+from time import sleep, time
 
 import paho.mqtt.client as mqtt
-from paho.mqtt.enums import (CallbackAPIVersion, MQTTErrorCode,
-                             MQTTProtocolVersion)
+from paho.mqtt.enums import CallbackAPIVersion, MQTTErrorCode, MQTTProtocolVersion
 from paho.mqtt.packettypes import PacketTypes
 from paho.mqtt.properties import Properties
 from paho.mqtt.reasoncodes import ReasonCode
@@ -123,15 +122,19 @@ class MQTTShell(Cmd):
         while mid in self.subscribe_mids:
             sleep(0.1)
 
-    def _run_cmd(self, cmd):
+    def _run_cmd(self, cmd, timeout=None):
         # Run a command and block until completed
         self.ready = False
         self._blocking_publish(cmd)
-        self._wait_for_completed()
+        self._wait_for_completed(timeout=timeout)
 
-    def _wait_for_completed(self):
+    def _wait_for_completed(self, timeout=None):
         # Block until the command is completed
+        start_time = time()
         while not self.ready:
+            if timeout and time() - start_time > timeout:
+                print(f"Connection timed out after {timeout} seconds")
+                return
             sleep(0.1)
 
     def _send_stream(self, stream: IOBase):
@@ -184,7 +187,8 @@ class MQTTShell(Cmd):
         self._blocking_subscribe(self.err_topic)
 
         # ensure device responds to `uname`
-        self._run_cmd("uname")
+        print("Checking for device response")
+        self._run_cmd("uname", timeout=5)
 
     def do_disconnect(self, _arg):
         """Disconnect from the terminal."""
