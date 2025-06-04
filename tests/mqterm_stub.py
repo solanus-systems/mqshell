@@ -19,10 +19,6 @@ handler.setFormatter(formatter)
 logger.handlers = [handler]
 
 
-def connect_lan() -> None:
-    """Connect via host OS LAN network."""
-
-
 def setup_mqtt() -> MQTTClient:
     """Configure the MQTT client"""
     mqtt_settings = config.copy()
@@ -35,18 +31,16 @@ async def receive_input(client: MQTTClient, term: MqttTerminal):
     """Pass messages to the terminal. Runs forever."""
     async for topic, msg, _retained, properties in client.queue:
         await term.handle_msg(topic, msg, properties)
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0)  # Any delay here and we can't receive streamed files
 
 
 async def main():
     # Connect to MQTT broker
     mqtt_client = setup_mqtt()
-    await mqtt_client.connect(True)
-    await mqtt_client.up.wait()
-    mqtt_client.up.clear()
+    await mqtt_client.connect()
 
     # Create terminal
-    term = MqttTerminal(mqtt_client, topic_prefix="test/device", logger=logger)
+    term = MqttTerminal(mqtt_client, topic_prefix="test/device")
 
     # Start processing messages in the input stream
     await term.connect()
@@ -57,7 +51,6 @@ async def main():
     finally:
         await term.disconnect()
         await mqtt_client.disconnect()
-        await mqtt_client.down.wait()
 
 
 if __name__ == "__main__":

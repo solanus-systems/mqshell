@@ -2,7 +2,8 @@
 
 # ensure we can import the modules from the package
 # import any mocked modules from tests/mocks/ first so they take precedence
-export MICROPYPATH="$(pwd)/tests/mocks:$(pwd):.frozen:~/.micropython/lib:/usr/lib/micropython"
+export MICROPYPATH="$(pwd)/tests/mocks:$(pwd)/tests:.frozen:~/.micropython/lib:/usr/lib/micropython"
+export PYTHONPATH="$(pwd):$PYTHONPATH"
 
 # bail out if mosquitto executable not found with `which mosquitto`
 if ! which mosquitto > /dev/null; then
@@ -14,9 +15,10 @@ fi
 echo "starting mosquitto broker"
 mosquitto -d
 
-# start micropython running stub mqterm
+# start mqterm stub
 echo "starting mqterm stub"
-micropython tests/mqterm_stub.py &
+micropython -m mqterm_stub &
+MQTERM_PID=$!
 
 # loop over all test files in tests/e2e and run them with CPython
 for test in tests/e2e/e2e_*.py; do
@@ -29,8 +31,12 @@ for test in tests/e2e/e2e_*.py; do
     fi
 done
 
+# stop micropython stub
+echo "stopping mqterm stub"
+kill $MQTERM_PID
+
 # stop mosquitto broker
-echo "shutting down mosquitto broker"
+echo "stopping mosquitto broker"
 pkill mosquitto
 
 # if failed is set, exit with status 1 (so CI will fail)
