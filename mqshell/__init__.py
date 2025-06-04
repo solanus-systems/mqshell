@@ -229,7 +229,7 @@ class MQTTShell(Cmd):
             print("Usage: cp <source> <destination>")
             return
         src, dst = args
-        self._blocking_publish(join(["cp", src, dst]), self._make_props(seq=0))
+        self._blocking_publish(join(["cp", dst]), self._make_props(seq=0))
         if not self.ready:
             with open(src, "rb") as file:
                 self._send_stream(file)
