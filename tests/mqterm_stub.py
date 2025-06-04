@@ -46,7 +46,7 @@ async def main():
     mqtt_client.up.clear()
 
     # Create terminal
-    term = MqttTerminal(mqtt_client, topic_prefix="/test/device", logger=logger)
+    term = MqttTerminal(mqtt_client, topic_prefix="test/device", logger=logger)
 
     # Start processing messages in the input stream
     await term.connect()
