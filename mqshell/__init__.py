@@ -139,7 +139,8 @@ class MQTTShell(Cmd):
 
     def _send_stream(self, stream: IOBase):
         # Send a stream of bytes in chunks of buf_len size
-        seq = 0
+        # Assumes we already used seq 0 to create the command
+        seq = 1
         while not self.ready:
             chunk = stream.read(self.buf_len)
             if not chunk:
@@ -147,6 +148,8 @@ class MQTTShell(Cmd):
             self._blocking_publish(chunk, self._make_props(seq))
             if seq == -1:
                 break
+            else:
+                seq += 1
 
     def do_quit(self, _arg):
         """Exit the shell."""
@@ -229,10 +232,11 @@ class MQTTShell(Cmd):
             print("Usage: cp <source> <destination>")
             return
         src, dst = args
+        self.ready = False
         self._blocking_publish(join(["cp", dst]), self._make_props(seq=0))
-        if not self.ready:
-            with open(src, "rb") as file:
-                self._send_stream(file)
+        sleep(0.1)  # Otherwise job may not exist
+        with open(src, "rb") as file:
+            self._send_stream(file)
         self._wait_for_completed()
 
 
