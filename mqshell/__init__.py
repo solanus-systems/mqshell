@@ -158,7 +158,7 @@ class MQTTShell(Cmd):
     def do_connect(self, arg):
         """Connect to a terminal via an MQTT broker.
         connect device_topic [url] [port] [keepalive]
-        connect /test/device test.mosquitto.org 1883 60"""
+        connect test/device test.mosquitto.org 1883 60"""
         if self.client.is_connected():
             self.do_disconnect(None)
 
@@ -166,7 +166,7 @@ class MQTTShell(Cmd):
         args = self._parse(arg)
         while len(args) < 4:
             args.append("")
-        addr = args[0] or "/test/device"
+        addr = args[0] or "test/device"
         host = args[1] or "localhost"
         port = int(args[2]) if args[2] else 1883
         keepalive = int(args[3]) if args[3] else 60
