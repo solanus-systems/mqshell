@@ -5,7 +5,9 @@ MQShell: A simple shell for interacting with an MQTT Terminal
 from binascii import unhexlify
 from cmd import Cmd
 from getpass import getuser
+from hashlib import sha256
 from io import IOBase
+from os import path
 from shlex import join, shlex
 from socket import gethostname
 from time import sleep, time
@@ -174,7 +176,9 @@ class MQTTShell(Cmd):
         port = int(args[2]) if args[2] else 1883
         keepalive = int(args[3]) if args[3] else 60
         try:
-            self.client.connect(host=host, port=port, keepalive=keepalive, clean_start=True)
+            self.client.connect(
+                host=host, port=port, keepalive=keepalive, clean_start=True
+            )
         except ConnectionRefusedError as e:
             print(f"Failed to connect to MQTT broker at {host}:{port} {e}")
             return
@@ -232,9 +236,50 @@ class MQTTShell(Cmd):
             print("Usage: cp <source> <destination>")
             return
         src, dst = args
-        self.ready = False
+
+        # Confirm file exists
+        if not path.isfile(src):
+            print(f"File not found: {src}")
+            return
+
+        # Create the job with our filename
         self._blocking_publish(join(["cp", dst]), self._make_props(seq=0))
+        self.ready = False
         sleep(0.1)  # Otherwise job may not exist
+
+        # Stream the file and wait for response
+        with open(src, "rb") as file:
+            self._send_stream(file)
+        self._wait_for_completed()
+
+    def do_ota(self, arg):
+        """Perform an OTA firmware update.
+        ota firmware.bin"""
+        args = self._parse(arg)
+        if len(args) != 1:
+            print("Usage: ota <file>")
+            return
+        src = args[0]
+
+        # Confirm file exists
+        if not path.isfile(src):
+            print(f"File not found: {src}")
+            return
+
+        # Generate sha256 hash of the file
+        checksum = sha256()
+        with open(src, "rb") as file:
+            while chunk := file.read(4096):
+                checksum.update(chunk)
+        checksum_hex = checksum.hexdigest()
+        print(f"Firmware SHA256: {checksum_hex}")
+
+        # Create the job with our filename
+        self._blocking_publish(join(["ota", checksum_hex]), self._make_props(seq=0))
+        self.ready = False
+        sleep(0.1)  # Otherwise job may not exist
+
+        # Stream the file and wait for response
         with open(src, "rb") as file:
             self._send_stream(file)
         self._wait_for_completed()
