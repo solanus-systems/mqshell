@@ -1,6 +1,7 @@
 # Stub device for testing the MQTT terminal
 
 import asyncio
+import gc
 import logging
 import os
 import sys
@@ -18,6 +19,7 @@ handler = logging.StreamHandler(sys.stdout)
 handler.setFormatter(formatter)
 logger.handlers = [handler]
 
+gc.collect()
 
 def setup_mqtt() -> MQTTClient:
     """Configure the MQTT client"""
