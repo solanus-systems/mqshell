@@ -1,7 +1,6 @@
 # Stub device for testing the MQTT terminal
 
 import asyncio
-import gc
 import logging
 import os
 import sys
@@ -12,14 +11,14 @@ from mqterm.terminal import MqttTerminal
 # Set up logging
 logger = logging.getLogger()
 logger.setLevel(getattr(logging, os.getenv("LOG_LEVEL", "WARNING").upper()))
-formatter = logging.Formatter(
-    "%(asctime)s.%(msecs)d - %(levelname)s - %(name)s - %(message)s"
-)
+format_str = "%(asctime)s.%(msecs)03.0f - %(levelname)s - %(name)s - %(message)s"
+formatter = logging.Formatter(format_str)
 handler = logging.StreamHandler(sys.stdout)
 handler.setFormatter(formatter)
 logger.handlers = [handler]
 
-gc.collect()
+# gc.collect()
+
 
 def setup_mqtt() -> MQTTClient:
     """Configure the MQTT client"""
@@ -48,11 +47,17 @@ async def main():
     await term.connect()
     try:
         asyncio.run(receive_input(mqtt_client, term))
+    except SystemExit:
+        print("Caught SystemExit, restarting...")
+        asyncio.new_event_loop()
     except KeyboardInterrupt:
         print("Shutting down...")
-    finally:
-        await term.disconnect()
-        await mqtt_client.disconnect()
+    except Exception as e:
+        logging.error(f"Error in receive_input: {e}")
+
+    # Clean up
+    await term.disconnect()
+    await mqtt_client.disconnect()
 
 
 if __name__ == "__main__":

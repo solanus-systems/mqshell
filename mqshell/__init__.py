@@ -284,6 +284,20 @@ class MQTTShell(Cmd):
             self._send_stream(file)
         self._wait_for_completed()
 
+    def do_reboot(self, arg=None):
+        """Reboot the remote device; default is a soft reboot.
+        reboot [--hard]"""
+        args = self._parse(arg) if arg else []
+        if len(args) > 1:
+            print("Usage: reboot [--hard]")
+            return
+
+        # Send the reboot command
+        if args and args[0] == "--hard":
+            self._run_cmd("reboot hard")
+        else:
+            self._run_cmd("reboot soft")
+
 
 if __name__ == "__main__":
     MQTTShell().cmdloop()
