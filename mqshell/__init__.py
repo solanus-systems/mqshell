@@ -2,12 +2,13 @@
 MQShell: A simple shell for interacting with an MQTT Terminal
 """
 
+import ssl
 from binascii import unhexlify
 from cmd import Cmd
 from getpass import getuser
 from hashlib import sha256
 from io import IOBase
-from os import path
+from os import getenv, path
 from shlex import join, shlex
 from socket import gethostname
 from time import sleep, time
@@ -25,11 +26,10 @@ class MQTTShell(Cmd):
     queue: list[mqtt.MQTTMessage] = []
     buf_len = 1400
 
-    def __init__(self):
+    def __init__(self, username=None, password=None, use_ssl=False):
+        """Initialize the MQTT Shell with optional username and password."""
         super().__init__()
-        user = getuser()
-        host = gethostname()
-        self.client_id = f"{user}@{host}"
+        self.client_id = f"{getuser()}@{gethostname()}"
         self.client = mqtt.Client(
             client_id=self.client_id,
             callback_api_version=CallbackAPIVersion.VERSION2,
@@ -40,6 +40,21 @@ class MQTTShell(Cmd):
         self.client.on_connect = self._on_connect
         self.client.on_subscribe = self._on_subscribe
         self.subscribe_mids = {}
+
+        # Configure auth if provided or set in environment
+        username = username or getenv("MQSHELL_USERNAME")
+        password = password or getenv("MQSHELL_PASSWORD")
+        if password and not username:
+            raise ValueError("Username required if password is provided")
+        if username and password:
+            self.client.username_pw_set(username, password)
+
+        # Configure TLS if requested or set in environment
+        # For now, no actual certificate verification is done
+        self.ssl = use_ssl or getenv("MQSHELL_SSL") == "true"
+        if self.ssl:
+            self.client.tls_set(cert_reqs=ssl.CERT_NONE)
+            self.client.tls_insecure_set(True)
 
     def _on_connect(self, _client, _userdata, _flags, rc: ReasonCode, _properties):
         if rc.is_failure:
@@ -173,7 +188,7 @@ class MQTTShell(Cmd):
             args.append("")
         addr = args[0] or "test/device"
         host = args[1] or "localhost"
-        port = int(args[2]) if args[2] else 1883
+        port = int(args[2]) if args[2] else (8883 if self.ssl else 1883)
         keepalive = int(args[3]) if args[3] else 60
         try:
             self.client.connect(

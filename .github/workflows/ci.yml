@@ -45,6 +45,15 @@ jobs:
       - name: Install e2e test dependencies
         run: ./bin/setup
       - name: Install mosquitto
-        run: sudo apt-get install -y mosquitto
+        run: |
+          sudo apt-add-repository ppa:mosquitto-dev/mosquitto-ppa
+          sudo apt-get update
+          sudo apt-get install -y mosquitto
+      - name: Generate test certificate for MQTTS
+        run: ./bin/generate_cert
+      - name: Set password for shell
+        run: |
+          mosquitto_passwd -c -b mosquitto_passwords test_user test_pass
+          chmod 700 mosquitto_passwords
       - name: Run integration tests
         run: ./bin/test_e2e
