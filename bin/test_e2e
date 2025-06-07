@@ -13,7 +13,7 @@ fi
 
 # start mosquitto broker
 echo "starting mosquitto broker"
-mosquitto -d
+mosquitto -c mosquitto.conf -d
 
 # start mqterm stub
 echo "starting mqterm stub"
