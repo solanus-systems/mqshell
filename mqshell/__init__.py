@@ -2,13 +2,14 @@
 MQShell: A simple shell for interacting with an MQTT Terminal
 """
 
+import os
 import ssl
+import tempfile
 from binascii import unhexlify
 from cmd import Cmd
 from getpass import getuser
 from hashlib import sha256
 from io import IOBase
-from os import getenv, path
 from shlex import join, shlex
 from socket import gethostname
 from time import sleep, time
@@ -41,9 +42,12 @@ class MQTTShell(Cmd):
         self.client.on_subscribe = self._on_subscribe
         self.subscribe_mids = {}
 
+        # File output target, if there is one
+        self.out_fd: IOBase | None = None
+
         # Configure auth if provided or set in environment
-        username = username or getenv("MQSHELL_USERNAME")
-        password = password or getenv("MQSHELL_PASSWORD")
+        username = username or os.getenv("MQSHELL_USERNAME")
+        password = password or os.getenv("MQSHELL_PASSWORD")
         if password and not username:
             raise ValueError("Username required if password is provided")
         if username and password:
@@ -51,7 +55,7 @@ class MQTTShell(Cmd):
 
         # Configure TLS if requested or set in environment
         # For now, no actual certificate verification is done
-        self.ssl = use_ssl or getenv("MQSHELL_SSL") == "true"
+        self.ssl = use_ssl or os.getenv("MQSHELL_SSL") == "true"
         if self.ssl:
             self.client.tls_set(cert_reqs=ssl.CERT_NONE)
             self.client.tls_insecure_set(True)
@@ -86,9 +90,14 @@ class MQTTShell(Cmd):
         if client_id != self.client_id:
             return
 
-        # Handle messages based on topic
+        # If we have a file output target, write to it; otherwise print
         if message.topic == self.out_topic:
-            print(message.payload.decode("utf-8"))
+            if self.out_fd:
+                self.out_fd.write(message.payload)
+            else:
+                print(message.payload.decode("utf-8"))
+
+        # If we got an error, print it
         elif message.topic == self.err_topic:
             print(f"ERROR: {message.payload.decode('utf-8')}")
 
@@ -139,7 +148,7 @@ class MQTTShell(Cmd):
         while mid in self.subscribe_mids:
             sleep(0.1)
 
-    def _run_cmd(self, cmd, timeout=None):
+    def _run_cmd(self, cmd, timeout=5):
         # Run a command and block until completed
         self.ready = False
         self._blocking_publish(cmd)
@@ -151,6 +160,8 @@ class MQTTShell(Cmd):
         while not self.ready:
             if timeout and time() - start_time > timeout:
                 print(f"Connection timed out after {timeout} seconds")
+                if self.out_fd:
+                    self.out_fd.close()
                 return
             sleep(0.1)
 
@@ -254,7 +265,7 @@ class MQTTShell(Cmd):
         src, dst = args
 
         # Confirm file exists
-        if not path.isfile(src):
+        if not os.path.isfile(src):
             print(f"File not found: {src}")
             return
 
@@ -278,7 +289,7 @@ class MQTTShell(Cmd):
         src = args[0]
 
         # Confirm file exists
-        if not path.isfile(src):
+        if not os.path.isfile(src):
             print(f"File not found: {src}")
             return
 
@@ -313,6 +324,42 @@ class MQTTShell(Cmd):
             self._run_cmd("reboot hard")
         else:
             self._run_cmd("reboot soft")
+
+    def do_edit(self, arg):
+        """Edit a file on the remote filesystem.
+        edit lib/file.py"""
+        args = self._parse(arg)
+        if len(args) != 1:
+            print("Usage: edit <path>")
+            return
+        src = args[0].lstrip(":")
+
+        # Confirm there is an editor configured
+        editor = os.getenv("EDITOR")
+        if not editor:
+            print("edit: $EDITOR not set")
+            return
+
+        dest_fd, dest = tempfile.mkstemp(suffix=os.path.basename(src))
+        try:
+            # TODO: Ensure source file exists locally; create an empty file if not
+            # Currently raises ENOENT but still works...
+            
+            # Fetch the file from the remote device for editing
+            with open(dest_fd, "wb") as file:
+                self.out_fd = file
+                self._run_cmd(join(["cat", src]))
+                self.out_fd = None
+
+            # Edit the file using the configured editor and send it back if
+            # the editor was successful
+            if os.system(f'{editor} "{dest}"') == 0:
+                self.do_cp(f"{dest} {src}")
+
+        # Clean up the temporary file
+        finally:
+            if os.path.exists(dest):
+                os.remove(dest)
 
 
 if __name__ == "__main__":
