@@ -214,6 +214,7 @@ class MQTTShell(Cmd):
 
     def do_disconnect(self, _arg):
         """Disconnect from the terminal."""
+        self.client.loop_stop()
         self.client.disconnect()
 
     def do_whoami(self, _arg):
