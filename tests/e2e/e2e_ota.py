@@ -22,13 +22,13 @@ def main():
     # Analyze the fixture firmware file
     output = StringIO()
     with redirect_stdout(output):
-        esptool.main(["image_info", "tests/fixtures/firmware.bin"])
+        esptool.main(["image_info", "tests/fixtures/firmware.app-bin"])
     esptool_info_in = output.getvalue().strip().splitlines()[-1]
 
     # Run OTA command
     output = StringIO()
     with redirect_stdout(output):
-        shell.do_ota("tests/fixtures/firmware.bin")
+        shell.do_ota("tests/fixtures/firmware.app-bin")
     last = output.getvalue().strip().splitlines()[-1]
     assert int(last), "Response to 'ota' command should be bytes written"
     assert path.exists("partition.bin"), "Partition file not created"
