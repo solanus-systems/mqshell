@@ -17,8 +17,6 @@ handler = logging.StreamHandler(sys.stdout)
 handler.setFormatter(formatter)
 logger.handlers = [handler]
 
-# gc.collect()
-
 
 def setup_mqtt() -> MQTTClient:
     """Configure the MQTT client"""
