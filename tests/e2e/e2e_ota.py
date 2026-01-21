@@ -44,11 +44,12 @@ def main():
         esptool_info_in == esptool_info_out
     ), f"Firmware analysis differs: {esptool_info_in} != {esptool_info_out}"
 
-    # Clean up
-    if path.isfile("partition.bin"):
-        remove("partition.bin")
-
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    finally:
+        # Clean up
+        if path.isfile("partition.bin"):
+            remove("partition.bin")
     print("\033[1m\tOK\033[0m")
