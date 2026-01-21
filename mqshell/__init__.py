@@ -243,7 +243,8 @@ class MQTTShell(Cmd):
             print("Usage: cat <path>")
             return
         path = args[0]
-        self._run_cmd(join(["cat", path]))
+        expr = f"'import os; print(open({path!r}).read())'"
+        self._run_cmd(f"eval {expr}")
 
     def do_ls(self, arg):
         """List the contents of the remote filesystem."""
@@ -252,7 +253,8 @@ class MQTTShell(Cmd):
             print("Usage: ls <path>")
             return
         path = args[0]
-        self._run_cmd(join(["ls", path]))
+        expr = f"'import os; print('\\n'.join(os.listdir({path!r})))'"
+        self._run_cmd(f"eval {expr}")
 
     def do_cp(self, arg):
         """Copy a file to the remote filesystem.
